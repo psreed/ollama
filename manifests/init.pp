@@ -20,6 +20,12 @@
 #   Changing this parameter triggers a service restart.
 #   Note: This parameter is only applied on Linux; it has no effect on Windows.
 #
+# @param enable_flash_attention
+#   When true, adds `Environment="OLLAMA_FLASH_ATTENTION=1"` to the [Service]
+#   section of the systemd unit file, enabling flash attention for supported
+#   models. Defaults to true. Changing this parameter triggers a service restart.
+#   Note: This parameter is only applied on Linux; it has no effect on Windows.
+#
 # @param ollama_port
 #   TCP port Ollama listens on. Defaults to 11434, which is the official
 #   default. It is strongly recommended NOT to change this unless you have a
@@ -58,16 +64,33 @@
 #   its model cache (~/.ollama/models). Defaults to `/root`. This parameter
 #   has no effect on Windows.
 #
+# @param modelfiles
+#   Hash mapping custom model names (tags) to their Modelfile content.
+#   For each entry, a file named `Modelfile-<name>` is written to
+#   `$modelfile_dir` and `ollama create "<name>" -f <file>` is run once the
+#   service is running. The model is automatically re-created whenever its
+#   Modelfile content changes. Base models referenced in a Modelfile should
+#   also be listed in `$models` to ensure they are pulled first.
+#   This parameter has no effect on Windows.
+#
+# @param modelfile_dir
+#   Directory on disk where Modelfiles are stored. Defaults to
+#   `/opt/ollama-models`. Created automatically when `$modelfiles` is
+#   non-empty. This parameter has no effect on Windows.
+#
 class ollama (
-  Enum['present', 'absent'] $ensure                  = 'present',
+  Enum['present', 'absent'] $ensure                   = 'present',
   Boolean                   $manage_service           = true,
   Boolean                   $enable_external_access   = false,
+  Boolean                   $enable_flash_attention   = true,
   Array[String[1]]          $models                   = [],
   Boolean                   $remove_models            = false,
   Boolean                   $purge_undefined_models   = false,
   String[1]                 $ollama_version           = 'latest',
   Integer[1, 65535]         $ollama_port              = 11434,
   String[1]                 $ollama_home              = '/root',
+  Hash[String[1], String[1]] $modelfiles              = {},
+  String[1]                 $modelfile_dir            = '/opt/ollama-models',
 ) {
   # Detect platform once; used throughout the class to select commands and
   # providers appropriate for each OS.
@@ -133,6 +156,7 @@ class ollama (
         mode    => '0644',
         content => epp('ollama/ollama.service.epp', {
             'enable_external_access' => $enable_external_access,
+            'enable_flash_attention' => $enable_flash_attention,
             'ollama_port'            => $ollama_port,
         }),
         require => Exec['install-ollama'],
@@ -241,6 +265,51 @@ class ollama (
           provider    => shell,
           environment => $home_env,
           require     => $purge_require,
+        }
+      }
+    }
+    # -------------------------------------------------------------------------
+    # Modelfiles (Linux only)
+    # -------------------------------------------------------------------------
+    unless $is_windows or $modelfiles.empty {
+      file { $modelfile_dir:
+        ensure => directory,
+        owner  => 'root',
+        group  => 'root',
+        mode   => '0755',
+      }
+
+      $modelfiles.each |String $model_name, String $model_content| {
+        $modelfile_path = "${modelfile_dir}/Modelfile-${model_name}"
+
+        file { $modelfile_path:
+          ensure  => file,
+          owner   => 'root',
+          group   => 'root',
+          mode    => '0644',
+          content => $model_content,
+          require => File[$modelfile_dir],
+        }
+
+        # Create the custom model on first run if it does not yet exist.
+        exec { "ollama-create-${model_name}":
+          command     => "ollama create \"${model_name}\" -f \"${modelfile_path}\"",
+          provider    => shell,
+          unless      => "ollama show \"${model_name}\" ${dev_null}",
+          timeout     => 0,
+          environment => $home_env,
+          require     => [File[$modelfile_path], $require_before_models],
+        }
+
+        # Re-create the custom model whenever its Modelfile content changes.
+        exec { "ollama-recreate-${model_name}":
+          command     => "ollama create \"${model_name}\" -f \"${modelfile_path}\"",
+          provider    => shell,
+          refreshonly => true,
+          timeout     => 0,
+          environment => $home_env,
+          subscribe   => File[$modelfile_path],
+          require     => $require_before_models,
         }
       }
     }

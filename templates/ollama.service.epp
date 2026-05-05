@@ -28,6 +28,9 @@ Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 <% if $needs_host_line { -%>
 Environment="OLLAMA_HOST=<%= $ollama_host_value %>"
 <% } -%>
+<% if $enable_flash_attention { -%>
+Environment="OLLAMA_FLASH_ATTENTION=1"
+<% } -%>
 
 [Install]
 WantedBy=default.target

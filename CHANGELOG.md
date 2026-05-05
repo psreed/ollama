@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## Release 1.0.2 (2026-05-05)
+
+**Features**
+
+- Added `enable_flash_attention` parameter (`Boolean`, default `true`). When
+  `true`, sets `Environment="OLLAMA_FLASH_ATTENTION=1"` in the systemd unit
+  file, enabling flash attention for supported models. Changing this parameter
+  triggers a service restart. This parameter has no effect on Windows.
+- Added `modelfiles` parameter (`Hash[String[1], String[1]]`, default `{}`). Keys
+  are custom model names/tags and values are the raw Modelfile content. For each
+  entry, a file named `Modelfile-<name>` is written to `$modelfile_dir` and
+  `ollama create "<name>" -f <file>` is run once the service is available. The
+  model is automatically re-created whenever its Modelfile content changes. This
+  parameter has no effect on Windows.
+- Added `modelfile_dir` parameter (`String[1]`, default `'/opt/ollama-models'`).
+  Directory where Modelfiles are stored on disk; created automatically when
+  `$modelfiles` is non-empty. Has no effect on Windows.
+
+**Changes**
+
+- Updated `spec/classes/ollama_spec.rb` with additional unit tests covering:
+  - `enable_flash_attention` defaults to `true` (asserts `OLLAMA_FLASH_ATTENTION=1`
+    present in the systemd unit file)
+  - `enable_flash_attention => false` (asserts env var is absent from unit file)
+  - `modelfiles` defined: Modelfile directory resource, Modelfile file resource
+    with content, `ollama-create-*` exec (idempotency guard, `HOME` env, timeout),
+    and `ollama-recreate-*` exec (refreshonly behaviour)
+  - `modelfiles` empty (default): asserts modelfile directory is not created
+  - Windows default parameters: asserts no modelfile resources are created
+
+---
+
 ## Release 1.0.1 (2026-05-04)
 
 **Changes**

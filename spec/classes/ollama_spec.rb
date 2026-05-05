@@ -46,6 +46,12 @@ describe 'ollama' do
         )
       end
 
+      it 'sets OLLAMA_FLASH_ATTENTION=1 in the unit file by default' do
+        is_expected.to contain_file('/etc/systemd/system/ollama.service').with_content(
+          %r{Environment="OLLAMA_FLASH_ATTENTION=1"},
+        )
+      end
+
       it 'creates a daemon-reload exec' do
         is_expected.to contain_exec('ollama-daemon-reload').with(
           command:     'systemctl daemon-reload',
@@ -66,6 +72,17 @@ describe 'ollama' do
 
       it 'does not create a purge exec' do
         is_expected.not_to contain_exec('ollama-purge-undefined-models')
+      end
+    end
+
+    # ---- enable_flash_attention => false -----------------------------------
+    context 'with enable_flash_attention => false' do
+      let(:params) { { enable_flash_attention: false } }
+
+      it 'does not set OLLAMA_FLASH_ATTENTION in the unit file' do
+        is_expected.to contain_file('/etc/systemd/system/ollama.service').without_content(
+          %r{OLLAMA_FLASH_ATTENTION},
+        )
       end
     end
 
@@ -179,6 +196,68 @@ describe 'ollama' do
       end
     end
 
+    # ---- modelfiles ---------------------------------------------------------
+    context 'with modelfiles defined' do
+      let(:params) do
+        {
+          models:      ['qwen3.5:9b'],
+          modelfiles:  {
+            'Qwen3.5:9b-16k-kvq4' => "FROM qwen3.5:9b\nPARAMETER num_ctx 16384\n",
+          },
+          modelfile_dir: '/opt/ollama-models',
+        }
+      end
+
+      it 'creates the modelfile directory' do
+        is_expected.to contain_file('/opt/ollama-models').with(
+          ensure: 'directory',
+          owner:  'root',
+          group:  'root',
+          mode:   '0755',
+        )
+      end
+
+      it 'writes the Modelfile with the correct content' do
+        is_expected.to contain_file('/opt/ollama-models/Modelfile-Qwen3.5:9b-16k-kvq4').with(
+          ensure:  'file',
+          owner:   'root',
+          group:   'root',
+          mode:    '0644',
+          content: "FROM qwen3.5:9b\nPARAMETER num_ctx 16384\n",
+        )
+      end
+
+      it 'creates the custom model when it does not exist' do
+        is_expected.to contain_exec('ollama-create-Qwen3.5:9b-16k-kvq4').with(
+          command:  'ollama create "Qwen3.5:9b-16k-kvq4" -f "/opt/ollama-models/Modelfile-Qwen3.5:9b-16k-kvq4"',
+          provider: 'shell',
+          unless:   'ollama show "Qwen3.5:9b-16k-kvq4" >/dev/null 2>&1',
+          timeout:  0,
+        )
+      end
+
+      it 'sets HOME on the create exec' do
+        is_expected.to contain_exec('ollama-create-Qwen3.5:9b-16k-kvq4').with(
+          environment: ['HOME=/root'],
+        )
+      end
+
+      it 'creates a refreshonly recreate exec subscribed to the Modelfile' do
+        is_expected.to contain_exec('ollama-recreate-Qwen3.5:9b-16k-kvq4').with(
+          command:     'ollama create "Qwen3.5:9b-16k-kvq4" -f "/opt/ollama-models/Modelfile-Qwen3.5:9b-16k-kvq4"',
+          provider:    'shell',
+          refreshonly: true,
+          timeout:     0,
+        )
+      end
+    end
+
+    context 'with modelfiles empty (default)' do
+      it 'does not create the modelfile directory' do
+        is_expected.not_to contain_file('/opt/ollama-models')
+      end
+    end
+
     # ---- manage_service => false --------------------------------------------
     context 'with manage_service => false' do
       let(:params) { { manage_service: false } }
@@ -279,6 +358,10 @@ describe 'ollama' do
 
       it 'does not create a daemon-reload exec' do
         is_expected.not_to contain_exec('ollama-daemon-reload')
+      end
+
+      it 'does not create modelfile resources' do
+        is_expected.not_to contain_file('/opt/ollama-models')
       end
 
       it 'manages the ollama service' do
