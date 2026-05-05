@@ -1,7 +1,1 @@
 ---
-ollama::manage_service: true
-ollama::enable_external_access: false
-ollama::models:
-  - name: 'qwen3.5:4b'
-  - name: 'qwen3.5:9b'
-  - name: 'qwen3.5:latest'

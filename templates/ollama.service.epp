@@ -1,4 +1,19 @@
-<%- | Boolean $enable_external_access | -%>
+<%- | Boolean $enable_external_access,
+      Integer $ollama_port,
+| -%>
+<%- # Determine the OLLAMA_HOST value.
+    # - External access on default port:  0.0.0.0  (no port suffix needed)
+    # - External access on custom port:   0.0.0.0:<port>
+    # - No external access, custom port:  127.0.0.1:<port>
+    # - No external access, default port: omit the variable entirely
+    $default_port      = 11434
+    $needs_host_line   = $enable_external_access or ($ollama_port != $default_port)
+    $bind_host         = $enable_external_access ? { true => '0.0.0.0', false => '127.0.0.1' }
+    $ollama_host_value = $ollama_port != $default_port ? {
+      true  => "${bind_host}:${ollama_port}",
+      false => $bind_host,
+    }
+-%>
 [Unit]
 Description=Ollama Service
 After=network-online.target
@@ -10,8 +25,8 @@ Group=ollama
 Restart=always
 RestartSec=3
 Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-<% if $enable_external_access { -%>
-Environment="OLLAMA_HOST=0.0.0.0"
+<% if $needs_host_line { -%>
+Environment="OLLAMA_HOST=<%= $ollama_host_value %>"
 <% } -%>
 
 [Install]

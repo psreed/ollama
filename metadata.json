@@ -1,6 +1,6 @@
 {
   "name": "psreed-ollama",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": "Paul Reed",
   "summary": "Puppet module for managing Ollama services",
   "license": "Apache-2.0",
@@ -19,6 +19,14 @@
       "operatingsystemrelease": [
         "24.04",
         "26.04"
+      ]
+    },
+    {
+      "operatingsystem": "windows",
+      "operatingsystemrelease": [
+        "2019",
+        "2022",
+        "11"
       ]
     }
   ],
