@@ -7,7 +7,9 @@
   "source": "https://github.com/psreed/ollama",
   "project_page": "https://github.com/psreed/ollama",
   "issues_url": "https://github.com/psreed/ollama/issues",
-  "dependencies": [],
+  "dependencies": [
+
+  ],
   "operatingsystem_support": [
     {
       "operatingsystem": "Debian",

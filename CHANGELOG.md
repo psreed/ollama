@@ -31,6 +31,9 @@ All notable changes to this project will be documented in this file.
     and `ollama-recreate-*` exec (refreshonly behaviour)
   - `modelfiles` empty (default): asserts modelfile directory is not created
   - Windows default parameters: asserts no modelfile resources are created
+- Fixed Rubocop `BlockDelimiters` convention in `spec/classes/ollama_spec.rb`:
+  replaced multi-line `do...end` block chained with `.not_to` with a single-line
+  `{ }` block (`expect { catalogue }.not_to raise_error`).
 
 ---
 

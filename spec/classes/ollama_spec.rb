@@ -463,9 +463,7 @@ describe 'ollama' do
     end
 
     it 'rejects an invalid ensure value' do
-      expect do
-        catalogue # force compilation
-      end.not_to raise_error
+      expect { catalogue }.not_to raise_error
     end
 
     context 'with ensure => invalid' do
