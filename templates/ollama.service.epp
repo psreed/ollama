@@ -1,4 +1,5 @@
 <%- | Boolean $enable_external_access,
+      Boolean $enable_flash_attention,
       Integer $ollama_port,
 | -%>
 <%- # Determine the OLLAMA_HOST value.
