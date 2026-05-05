@@ -52,6 +52,12 @@
 #   Puppet will re-run the install script whenever the running version does not
 #   match, allowing upgrades and downgrades.
 #
+# @param ollama_home
+#   Value to set as the HOME environment variable for all exec resources that
+#   invoke the `ollama` CLI (pull, show, rm, list). Ollama uses HOME to locate
+#   its model cache (~/.ollama/models). Defaults to `/root`. This parameter
+#   has no effect on Windows.
+#
 class ollama (
   Enum['present', 'absent'] $ensure                  = 'present',
   Boolean                   $manage_service           = true,
@@ -61,6 +67,7 @@ class ollama (
   Boolean                   $purge_undefined_models   = false,
   String[1]                 $ollama_version           = 'latest',
   Integer[1, 65535]         $ollama_port              = 11434,
+  String[1]                 $ollama_home              = '/root',
 ) {
   # Detect platform once; used throughout the class to select commands and
   # providers appropriate for each OS.
@@ -71,6 +78,14 @@ class ollama (
   $dev_null = $is_windows ? {
     true  => '2>$null',
     false => '>/dev/null 2>&1',
+  }
+
+  # HOME must be set explicitly on Linux when Puppet runs without a login shell
+  # (e.g. as root via PE). Ollama uses $HOME to find ~/.ollama/models.
+  # On Windows this is not required; an empty array leaves the env unchanged.
+  $home_env = $is_windows ? {
+    true  => [],
+    false => ["HOME=${ollama_home}"],
   }
 
   if $ensure == 'present' {
@@ -186,11 +201,12 @@ class ollama (
 
     $models.each |String $model_name| {
       exec { "ollama-pull-${model_name}":
-        command  => "ollama pull ${model_name}",
-        provider => $exec_provider,
-        unless   => "ollama show ${model_name} ${dev_null}",
-        timeout  => 0,
-        require  => $require_before_models,
+        command     => "ollama pull ${model_name}",
+        provider    => $exec_provider,
+        unless      => "ollama show ${model_name} ${dev_null}",
+        timeout     => 0,
+        environment => $home_env,
+        require     => $require_before_models,
       }
     }
 
@@ -212,17 +228,19 @@ class ollama (
         # Build a PowerShell array literal from the Puppet-defined model list.
         $defined_list_ps = join($defined_model_names, "','")
         exec { 'ollama-purge-undefined-models':
-          command  => "\$defined = @('${defined_list_ps}'); ollama list | Select-Object -Skip 1 | ForEach-Object { \$name = (\$_ -split '\\s+')[0]; if (\$name -and \$defined -notcontains \$name) { ollama rm \$name } }",
-          provider => powershell,
-          require  => $purge_require,
+          command     => "\$defined = @('${defined_list_ps}'); ollama list | Select-Object -Skip 1 | ForEach-Object { \$name = (\$_ -split '\\s+')[0]; if (\$name -and \$defined -notcontains \$name) { ollama rm \$name } }",
+          provider    => powershell,
+          environment => $home_env,
+          require     => $purge_require,
         }
       } else {
         # Build a newline-separated list for exact grep matching.
         $defined_list = join($defined_model_names, '\n')
         exec { 'ollama-purge-undefined-models':
-          command  => "ollama list | awk 'NR>1 {print \$1}' | while IFS= read -r _model; do printf '${defined_list}\\n' | grep -qxF \"\$_model\" || ollama rm \"\$_model\"; done",
-          provider => shell,
-          require  => $purge_require,
+          command     => "ollama list | awk 'NR>1 {print \$1}' | while IFS= read -r _model; do printf '${defined_list}\\n' | grep -qxF \"\$_model\" || ollama rm \"\$_model\"; done",
+          provider    => shell,
+          environment => $home_env,
+          require     => $purge_require,
         }
       }
     }
@@ -249,11 +267,12 @@ class ollama (
 
         $models.each |String $model_name| {
           exec { "ollama-rm-${model_name}":
-            command  => "ollama rm ${model_name}",
-            provider => powershell,
-            onlyif   => "ollama show ${model_name} 2>\$null",
-            require  => $rm_require,
-            before   => Exec['ollama-remove-installation'],
+            command     => "ollama rm ${model_name}",
+            provider    => powershell,
+            onlyif      => "ollama show ${model_name} 2>\$null",
+            environment => $home_env,
+            require     => $rm_require,
+            before      => Exec['ollama-remove-installation'],
           }
         }
       }
@@ -286,11 +305,12 @@ class ollama (
 
         $models.each |String $model_name| {
           exec { "ollama-rm-${model_name}":
-            command  => "ollama rm ${model_name}",
-            provider => shell,
-            onlyif   => "ollama show ${model_name} >/dev/null 2>&1",
-            require  => $rm_require,
-            before   => File['/etc/systemd/system/ollama.service'],
+            command     => "ollama rm ${model_name}",
+            provider    => shell,
+            onlyif      => "ollama show ${model_name} >/dev/null 2>&1",
+            environment => $home_env,
+            require     => $rm_require,
+            before      => File['/etc/systemd/system/ollama.service'],
           }
         }
       }
