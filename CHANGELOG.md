@@ -34,6 +34,9 @@ All notable changes to this project will be documented in this file.
 - Fixed Rubocop `BlockDelimiters` convention in `spec/classes/ollama_spec.rb`:
   replaced multi-line `do...end` block chained with `.not_to` with a single-line
   `{ }` block (`expect { catalogue }.not_to raise_error`).
+- Added `spec/spec_helper_local.rb` with a stub `powershell` exec provider so
+  that Windows-targeted `Exec` resources with `provider => 'powershell'` compile
+  correctly on Linux CI runners where the provider is not available.
 
 ---
 
