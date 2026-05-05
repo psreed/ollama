@@ -1,11 +1,15 @@
 {
   "name": "psreed-ollama",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "Paul Reed",
   "summary": "Puppet module for managing Ollama services",
   "license": "Apache-2.0",
   "source": "https://github.com/psreed/ollama",
-  "dependencies": [],
+  "project_page": "https://github.com/psreed/ollama",
+  "issues_url": "https://github.com/psreed/ollama/issues",
+  "dependencies": [
+
+  ],
   "operatingsystem_support": [
     {
       "operatingsystem": "Debian",

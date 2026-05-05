@@ -1,117 +1,178 @@
-# ollama
+# psreed-ollama
 
-Welcome to your new module. A short overview of the generated parts can be found
-in the [PDK documentation][1].
-
-The README template below provides a starting point with details about what
-information to include in your README.
+Puppet module for installing and managing [Ollama](https://ollama.com), the local LLM runtime. Supports Debian/Ubuntu (Linux) and Windows.
 
 ## Table of Contents
 
 1. [Description](#description)
-1. [Setup - The basics of getting started with ollama](#setup)
+1. [Setup](#setup)
     * [What ollama affects](#what-ollama-affects)
-    * [Setup requirements](#setup-requirements)
+    * [Requirements](#requirements)
     * [Beginning with ollama](#beginning-with-ollama)
-1. [Usage - Configuration options and additional functionality](#usage)
-1. [Limitations - OS compatibility, etc.](#limitations)
-1. [Development - Guide for contributing to the module](#development)
+1. [Usage](#usage)
+    * [Hiera (recommended)](#hiera-recommended)
+    * [Common examples](#common-examples)
+1. [Reference](#reference)
+1. [Limitations](#limitations)
 
 ## Description
 
-Briefly tell users why they might want to use your module. Explain what your
-module does and what kind of problems users can solve with it.
+This module installs Ollama via the official install script (Linux) or PowerShell installer (Windows), manages the systemd service (Linux) or Windows service, optionally configures external network access and a custom port, and enforces a defined set of models via `ollama pull` / `ollama rm`.
 
-This should be a fairly short description helps the user decide if your module
-is what they want.
+Key features:
+
+- Install or remove Ollama, with optional version pinning
+- Manage the `ollama` service (enable, disable, restart on config change)
+- Expose Ollama on all interfaces and/or a custom port
+- Declare which models should be present; optionally purge everything else
+- Full `ensure => absent` support including model cleanup before uninstall
+- Cross-platform: Linux (Debian/Ubuntu) and Windows
 
 ## Setup
 
-### What ollama affects **OPTIONAL**
+### What ollama affects
 
-If it's obvious what your module touches, you can skip this section. For
-example, folks can probably figure out that your mysql_instance module affects
-their MySQL instances.
+**Linux**
 
-If there's more that they should know about, though, this is the place to
-mention:
+| Resource | Detail |
+|---|---|
+| `/usr/local/bin/ollama` | Binary installed by the official install script |
+| `/etc/systemd/system/ollama.service` | Systemd unit file (managed by this module) |
+| `systemd daemon-reload` | Triggered whenever the unit file changes |
+| `ollama` service | Managed via Puppet `service` resource |
+| `~/.ollama/models` (under `$ollama_home`) | Model storage directory used by the CLI |
 
-* Files, packages, services, or operations that the module will alter, impact,
-  or execute.
-* Dependencies that your module automatically installs.
-* Warnings or other important notices.
+**Windows**
 
-### Setup Requirements **OPTIONAL**
+| Resource | Detail |
+|---|---|
+| Ollama installation directory | `%LOCALAPPDATA%\Programs\Ollama` or `%ProgramFiles%\Ollama` |
+| `OLLAMA_HOST` machine env var | Set via PowerShell to control bind address and port |
+| `ollama` Windows service | Managed via Puppet `service` resource |
 
-If your module requires anything extra before setting up (pluginsync enabled,
-another module, etc.), mention it here.
+### Requirements
 
-If your most recent release breaks compatibility or requires particular steps
-for upgrading, you might want to include an additional "Upgrading" section here.
+- Puppet >= 7.24
+- Linux targets: `curl` must be available; `systemd` is required for service management
+- Windows targets: PowerShell execution policy must permit running remote scripts (`irm … | iex`)
+- The node running Puppet must be able to reach `ollama.com` for installation and model downloads
 
 ### Beginning with ollama
 
-The very basic steps needed for a user to get the module up and running. This
-can include setup steps, if necessary, or it can be an example of the most basic
-use of the module.
+Classify a node with the `ollama` class. All parameters have defaults and are intended to be driven through Hiera or Puppet Enterprise node groups:
+
+```puppet
+include ollama
+```
+
+To install a specific version with a set of models:
+
+```puppet
+class { 'ollama':
+  ollama_version => '0.5.7',
+  models         => ['qwen3.5:4b', 'qwen3.5:latest'],
+}
+```
 
 ## Usage
 
-Include usage examples for common use cases in the **Usage** section. Show your
-users how to use your module to solve problems, and be sure to include code
-examples. Include three to five examples of the most important or common tasks a
-user can accomplish with your module. Show users how to accomplish more complex
-tasks that involve different types, classes, and functions working in tandem.
+### Hiera (recommended)
+
+Set these keys in your Hiera data (e.g. a PE node group or `common.yaml`):
+
+```yaml
+ollama::ensure: 'present'
+ollama::manage_service: true
+ollama::enable_external_access: false
+ollama::ollama_version: 'latest'
+ollama::ollama_port: 11434
+ollama::ollama_home: '/root'
+ollama::remove_models: false
+ollama::purge_undefined_models: false
+ollama::models:
+  - 'qwen3.5:4b'
+  - 'qwen3.5:9b'
+  - 'qwen3.5:latest'
+```
+
+### Common examples
+
+**Expose Ollama on all interfaces (default port):**
+
+```puppet
+class { 'ollama':
+  enable_external_access => true,
+}
+```
+
+**Pin to a specific version** — Puppet will re-run the installer if the running binary differs:
+
+```puppet
+class { 'ollama':
+  ollama_version => '0.5.7',
+}
+```
+
+**Custom port** — not recommended unless you have a specific reason; changing the port may break clients that assume TCP 11434:
+
+```puppet
+class { 'ollama':
+  enable_external_access => true,
+  ollama_port            => 9999,
+}
+```
+
+**Enforce only Puppet-defined models** — any model pulled outside of Puppet will be removed on the next run:
+
+```puppet
+class { 'ollama':
+  purge_undefined_models => true,
+  models                 => ['qwen3.5:4b', 'qwen3.5:9b', 'qwen3.5:latest'],
+}
+```
+
+**Completely remove Ollama, including models:**
+
+```puppet
+class { 'ollama':
+  ensure         => absent,
+  manage_service => true,
+  remove_models  => true,
+  models         => ['qwen3.5:4b', 'qwen3.5:9b', 'qwen3.5:latest'],
+}
+```
+
+**Fix missing `$HOME` when Puppet agent runs without a login shell (Linux):**
+
+```puppet
+class { 'ollama':
+  ollama_home => '/root',
+}
+```
 
 ## Reference
 
-This section is deprecated. Instead, add reference information to your code as
-Puppet Strings comments, and then use Strings to generate a REFERENCE.md in your
-module. For details on how to add code comments and generate documentation with
-Strings, see the [Puppet Strings documentation][2] and [style guide][3].
-
-If you aren't ready to use Strings yet, manually create a REFERENCE.md in the
-root of your module directory and list out each of your module's classes,
-defined types, facts, functions, Puppet tasks, task plans, and resource types
-and providers, along with the parameters for each.
-
-For each element (class, defined type, function, and so on), list:
-
-* The data type, if applicable.
-* A description of what the element does.
-* Valid values, if the data type doesn't make it obvious.
-* Default value, if any.
-
-For example:
-
-```
-### `pet::cat`
+### Class: `ollama`
 
 #### Parameters
 
-##### `meow`
-
-Enables vocalization in your cat. Valid options: 'string'.
-
-Default: 'medium-loud'.
-```
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `ensure` | `Enum['present','absent']` | `'present'` | Install (`present`) or fully remove (`absent`) Ollama |
+| `manage_service` | `Boolean` | `true` | Manage the `ollama` service resource |
+| `enable_external_access` | `Boolean` | `false` | Bind Ollama to `0.0.0.0` instead of loopback only (Linux: systemd unit; Windows: `OLLAMA_HOST` machine env var) |
+| `ollama_port` | `Integer[1,65535]` | `11434` | TCP port Ollama listens on. Changing this is discouraged |
+| `ollama_version` | `String[1]` | `'latest'` | Version to install. Use `'latest'` for the most recent release or a specific string like `'0.5.7'` to pin |
+| `ollama_home` | `String[1]` | `'/root'` | `HOME` environment variable injected into all `ollama` CLI exec resources (Linux only). Required when the Puppet agent runs without a login shell |
+| `models` | `Array[String[1]]` | `[]` | List of Ollama model tags to ensure are pulled (e.g. `['qwen3.5:4b']`) |
+| `remove_models` | `Boolean` | `false` | When `ensure => absent`, remove all listed models before uninstalling |
+| `purge_undefined_models` | `Boolean` | `false` | Remove any locally-installed model not listed in `$models` on every Puppet run |
 
 ## Limitations
 
-In the Limitations section, list any incompatibilities, known issues, or other
-warnings.
+- `enable_external_access` is only applied on Linux via the systemd unit file. On Windows, the bind address is always derived from `$ollama_port` and set via the `OLLAMA_HOST` machine environment variable.
+- Model downloads (`ollama pull`) can be very large (several GB). The `exec` timeout is disabled (`timeout => 0`) for these resources.
+- `purge_undefined_models` runs on every Puppet catalog application; ensure your `$models` list is complete before enabling it.
+- The Windows removal exec targets `%LOCALAPPDATA%\Programs\Ollama` and `%ProgramFiles%\Ollama`. Models stored in a non-standard location will not be removed.
+- Tested on Debian 12/13, Ubuntu 24.04/26.04, Windows Server 2019/2022, and Windows 11.
 
-## Development
-
-In the Development section, tell other users the ground rules for contributing
-to your project and how they should submit their work.
-
-## Release Notes/Contributors/Etc. **Optional**
-
-If you aren't using changelog, put your release notes here (though you should
-consider using changelog). You can also add any additional sections you feel are
-necessary or important to include here. Please use the `##` header.
-
-[1]: https://puppet.com/docs/pdk/latest/pdk_generating_modules.html
-[2]: https://puppet.com/docs/puppet/latest/puppet_strings.html
-[3]: https://puppet.com/docs/puppet/latest/puppet_strings_style.html
