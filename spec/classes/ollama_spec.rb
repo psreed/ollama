@@ -86,6 +86,25 @@ describe 'ollama' do
       end
     end
 
+    # ---- kv_cache_type ------------------------------------------------------
+    context 'with kv_cache_type => q4_0' do
+      let(:params) { { kv_cache_type: 'q4_0' } }
+
+      it 'sets OLLAMA_KV_CACHE_TYPE in the unit file' do
+        is_expected.to contain_file('/etc/systemd/system/ollama.service').with_content(
+          %r{Environment="OLLAMA_KV_CACHE_TYPE=q4_0"},
+        )
+      end
+    end
+
+    context 'with kv_cache_type unset (default)' do
+      it 'does not set OLLAMA_KV_CACHE_TYPE in the unit file' do
+        is_expected.to contain_file('/etc/systemd/system/ollama.service').without_content(
+          %r{OLLAMA_KV_CACHE_TYPE},
+        )
+      end
+    end
+
     # ---- enable_external_access ----------------------------------------------
     context 'with enable_external_access => true' do
       let(:params) { { enable_external_access: true } }

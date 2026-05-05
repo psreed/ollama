@@ -92,6 +92,7 @@ ollama::ollama_home: '/root'
 ollama::remove_models: false
 ollama::purge_undefined_models: false
 ollama::modelfile_dir: '/opt/ollama-models'
+ollama::kv_cache_type: 'q4_0'
 ollama::models:
   - 'qwen3.5:4b'
   - 'qwen3.5:9b'
@@ -103,10 +104,9 @@ ollama::modelfiles:
     SYSTEM """
     You are a senior software engineer. Provide concise, efficient code and explain complex logic clearly.
     """
-  'Qwen3.5:9b-16k-kvq4': |
+  'Qwen3.5:9b-16k': |
     FROM qwen3.5:9b
     PARAMETER num_ctx 16384
-    PARAMETER kv_cache_type q4_0
     SYSTEM """
     You are a senior software engineer. Provide concise, efficient code and explain complex logic clearly.
     """
@@ -219,6 +219,7 @@ changes.
 | `purge_undefined_models` | `Boolean` | `false` | Remove any locally-installed model not listed in `$models` on every Puppet run |
 | `modelfiles` | `Hash[String[1],String[1]]` | `{}` | Hash of custom model name → Modelfile content. Writes `Modelfile-<name>` to `$modelfile_dir` and runs `ollama create` (Linux only). Model is re-created automatically when content changes |
 | `modelfile_dir` | `String[1]` | `'/opt/ollama-models'` | Directory where Modelfiles are stored on disk (Linux only). Created automatically when `$modelfiles` is non-empty |
+| `kv_cache_type` | `Optional[String[1]]` | `undef` | When set, adds `Environment="OLLAMA_KV_CACHE_TYPE=<value>"` to the systemd unit file (Linux only). Useful values: `q4_0`, `q8_0`. Changing this triggers a service restart |
 
 ## Limitations
 

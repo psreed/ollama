@@ -10,6 +10,10 @@ All notable changes to this project will be documented in this file.
   `true`, sets `Environment="OLLAMA_FLASH_ATTENTION=1"` in the systemd unit
   file, enabling flash attention for supported models. Changing this parameter
   triggers a service restart. This parameter has no effect on Windows.
+- Added `kv_cache_type` parameter (`Optional[String[1]]`, default `undef`). When
+  set, adds `Environment="OLLAMA_KV_CACHE_TYPE=<value>"` to the systemd unit
+  file. Useful values include `q4_0` and `q8_0`. Changing this parameter
+  triggers a service restart. This parameter has no effect on Windows.
 - Added `modelfiles` parameter (`Hash[String[1], String[1]]`, default `{}`). Keys
   are custom model names/tags and values are the raw Modelfile content. For each
   entry, a file named `Modelfile-<name>` is written to `$modelfile_dir` and

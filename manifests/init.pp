@@ -78,6 +78,13 @@
 #   `/opt/ollama-models`. Created automatically when `$modelfiles` is
 #   non-empty. This parameter has no effect on Windows.
 #
+# @param kv_cache_type
+#   When set to a non-empty string, adds `Environment="OLLAMA_KV_CACHE_TYPE=<value>"`
+#   to the [Service] section of the systemd unit file. Useful values include
+#   `q4_0` and `q8_0`. Defaults to `undef` (env var omitted). Changing this
+#   parameter triggers a service restart.
+#   Note: This parameter is only applied on Linux; it has no effect on Windows.
+#
 class ollama (
   Enum['present', 'absent'] $ensure                   = 'present',
   Boolean                   $manage_service           = true,
@@ -91,6 +98,7 @@ class ollama (
   String[1]                 $ollama_home              = '/root',
   Hash[String[1], String[1]] $modelfiles              = {},
   String[1]                 $modelfile_dir            = '/opt/ollama-models',
+  Optional[String[1]]       $kv_cache_type            = undef,
 ) {
   # Detect platform once; used throughout the class to select commands and
   # providers appropriate for each OS.
@@ -157,6 +165,7 @@ class ollama (
         content => epp('ollama/ollama.service.epp', {
             'enable_external_access' => $enable_external_access,
             'enable_flash_attention' => $enable_flash_attention,
+            'kv_cache_type'          => $kv_cache_type,
             'ollama_port'            => $ollama_port,
         }),
         require => Exec['install-ollama'],

@@ -1,6 +1,7 @@
-<%- | Boolean $enable_external_access,
-      Boolean $enable_flash_attention,
-      Integer $ollama_port,
+<%- | Boolean           $enable_external_access,
+      Boolean           $enable_flash_attention,
+      Optional[String]  $kv_cache_type,
+      Integer           $ollama_port,
 | -%>
 <%- # Determine the OLLAMA_HOST value.
     # - External access on default port:  0.0.0.0  (no port suffix needed)
@@ -31,6 +32,9 @@ Environment="OLLAMA_HOST=<%= $ollama_host_value %>"
 <% } -%>
 <% if $enable_flash_attention { -%>
 Environment="OLLAMA_FLASH_ATTENTION=1"
+<% } -%>
+<% if $kv_cache_type =~ String { -%>
+Environment="OLLAMA_KV_CACHE_TYPE=<%= $kv_cache_type %>"
 <% } -%>
 
 [Install]
