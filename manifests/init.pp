@@ -163,10 +163,10 @@ class ollama (
         group   => 'root',
         mode    => '0644',
         content => epp('ollama/ollama.service.epp', {
-            'enable_external_access' => $enable_external_access,
-            'enable_flash_attention' => $enable_flash_attention,
-            'kv_cache_type'          => $kv_cache_type,
-            'ollama_port'            => $ollama_port,
+          'enable_external_access' => $enable_external_access,
+          'enable_flash_attention' => $enable_flash_attention,
+          'kv_cache_type'          => $kv_cache_type,
+          'ollama_port'            => $ollama_port,
         }),
         require => Exec['install-ollama'],
         notify  => Exec['ollama-daemon-reload'],
@@ -262,6 +262,7 @@ class ollama (
         $defined_list_ps = join($defined_model_names, "','")
         exec { 'ollama-purge-undefined-models':
           command     => "\$defined = @('${defined_list_ps}'); ollama list | Select-Object -Skip 1 | ForEach-Object { \$name = (\$_ -split '\\s+')[0]; if (\$name -and \$defined -notcontains \$name) { ollama rm \$name } }",
+          onlyif      => "\$defined = @('${defined_list_ps}'); \$extra = ollama list | Select-Object -Skip 1 | ForEach-Object { (\$_ -split '\\s+')[0] } | Where-Object { \$_ -and \$defined -notcontains \$_ }; if (\$extra) { exit 0 } else { exit 1 }",
           provider    => powershell,
           environment => $home_env,
           require     => $purge_require,
@@ -271,6 +272,7 @@ class ollama (
         $defined_list = join($defined_model_names, '\n')
         exec { 'ollama-purge-undefined-models':
           command     => "ollama list | awk 'NR>1 {print \$1}' | while IFS= read -r _model; do printf '${defined_list}\\n' | grep -qxF \"\$_model\" || ollama rm \"\$_model\"; done",
+          onlyif      => "ollama list | awk 'NR>1 {print \$1}' | { while IFS= read -r _model; do printf '${defined_list}\\n' | grep -qxF \"\$_model\" || exit 0; done; exit 1; }",
           provider    => shell,
           environment => $home_env,
           require     => $purge_require,
